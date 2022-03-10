@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Leaflet-ing UBC</title>
+    <meta charset="utf-8" />
+
+    <!-- Leaflet styles and code. Place in the <head></head> element. -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.4.0/dist/leaflet.css"
+    />
+    <script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js"></script>
+
+    <!-- jQuery is a library that simplifies many things in JavaScript.
+	     We'll use it to retrieve data from the web. -->
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+
+    <script src="./p5.min.js"></script>
+    <!-- this should be unnecessary in this code, as we aren't using p5.js...
+       but since I'm showing you the code running in the p5 editor,
+       the editor expects p5.js to be here...
+       otherwise, it gives you a "TypeError: window.p5 is undefined".
+       We won't use any of p5.js's commands, though! -->
+
+       <meta name="viewport" content="width=device-width, initial-scale=1">
+       <style>
+       .dropbtn {
+         /* background-color: #04AA6D; */
+         /* color: black; */
+         padding: 1px;
+         /* font-size: 14px;
+         border: none; */
+       }
+
+       .dropdown {
+         position: relative;
+         display: inline-block;
+
+       }
+
+       .dropdown-content {
+         display: none;
+         position: fixed;
+         flex-direction: column;
+         /* background-color: #f1f1f1; */
+         /* min-width: 160px; */
+         box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+         z-index: 10;
+       }
+
+       .dropdown-content a {
+         color: black;
+         padding: 5px 5px;
+         text-decoration: none;
+         display: inline-block;
+       }
+
+       .dropdown-content a:hover {background-color: #ddd;}
+
+       .dropdown:hover .dropdown-content {display: block; flex-direction: column;}
+
+       .dropdown:hover .dropbtn {background-color: #d4d4d4;}
+
+
+.info {
+    padding: 6px 8px;
+    font: 14px/16px Arial, Helvetica, sans-serif;
+    background: white;
+    background: rgba(255,255,255,0.8);
+    box-shadow: 0 0 15px rgba(0,0,0,0.2);
+    border-radius: 5px;
+}
+.info h4 {
+    margin: 0 0 5px;
+    color: #777;
+}
+
+    .legend {
+    line-height: 18px;
+    color: #555;
+}
+.legend i {
+    width: 18px;
+    height: 18px;
+    float: left;
+    margin-right: 8px;
+    opacity: 1;
+}
+
+
+
+       </style>
+
+
+  </head>
+  <body>
+    <div id="mapid" style="width: 1000px; height: 600px;"></div>
+    <!-- Our web map will get placed into this div element -->
+
+    <div id="controls" style="margin: 15px;">
+      <button id="showAllBuildingsButton">Show All UBC Buildings</button>
+      <button id="clearBuildingsButton">Clear</button>
+
+      <span style="display:inline-block; width: 30px"></span>
+      <input type="text" id="highlightBuildingsTextEntry" style="width: 185px" placeholder="Building Name (eg. Buchanan)" />
+      <button id="highlightBuildingsButton">Highlight</button>
+
+        </div>
+
+      <div class="dropdown" style="margin:15px;">
+<!--         <button class="dropbtn">Select Building Type</button> -->
+<!--         <div class="dropdown-content"> -->
+        <p> Filter by Building Type </p>
+          <button id="#mixed" value="mixed">Mixed</button>
+          <button id="#concrete" value="concrete">Concrete</button>
+          <button id="#steel" value="steel">Steel</button>
+          <button id="#trailer" value="trailer">Trailer</button>
+          <button id="#wood" value="wood">Wood</button>
+          <button id="#temporary" value="temporary">Temporary</button>
+          <button id="#misc" value="misc">Misc.</button>
+        </div>
+
+
+
+
+
+
+
+
+    <script>
+
+        // Make a Leaflet map with L.map().
+        // Store the map in the variable 'map'.
+        // "mapid" is the 'id' of the DOM element to contain the map.
+        var map = L.map('mapid',
+                        {
+          								center: [49.259046, -123.245901],
+          								zoom: 14
+        								}  // this object holds map options
+                  );
+
+      var topoTiles = L.tileLayer(
+          								'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          {
+      										maxZoom: 17,
+      										attribution: 'Basemap data: &copy; <a href="http://www.opensbuildingtmap.org/copyright">OpenSbuildingtMap</a>, <a href="http://viewfinderpanoramas.org">SRTM</a> | Basemap style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
+      									}
+      								).addTo(map);
+
+      function getColor(d) {
+          return d <= 3 ? "#dadaeb" :
+                 d <= 7 ? "#9e9ac8" :
+                 d <= 9 ? "#756bb1" :
+                          "#54278f";
+      };
+
+
+
+
+        function buildingMarkerOptions(feature)  {
+          return{
+        	fillColor: getColor(feature.properties.COUNT_FLOORS),
+        	color: "#000",
+        	weight: 1,
+        	opacity: 0.2,
+        	fillOpacity: 1
+        }
+      };
+
+
+        function buildingMarkerHighlightedOptions(feature)  {
+        	return{
+            fillColor: "#ff0004",
+        	color: "#000",
+        	weight: 1,
+        	opacity: 0.3,
+        	fillOpacity: 0.5
+      }
+        };
+
+
+
+
+        function onEachBuilding(feature, layer) {
+           // does this building even have a property named TAXA?
+           if (feature.properties && feature.properties.NAME && feature.properties.CONSTRUCTION_TYPE && feature.properties.COUNT_FLOORS) {
+              layer.bindTooltip(feature.properties.NAME + " - " +  feature.properties.CONSTRUCTION_TYPE);
+           }
+        };
+
+
+
+function areaStyle(feature) {
+   if (buildingToHighlight === "")
+    buildingMarkerOptionsToUse = buildingMarkerOptions(feature);
+   else
+    buildingMarkerOptionsToUse = buildingMarkerHighlightedOptions(feature);
+
+  return buildingMarkerOptionsToUse
+
+};
+
+
+        function BuildingsToFilter (feature, layer) {
+          if(buildingToHighlight === "") {
+            return true;
+          }
+          else if (feature.properties && feature.properties.NAME) {
+
+            return feature.properties.NAME.toLowerCase().includes(buildingToHighlight.toLowerCase());
+      		// We ignore uppercase/lowercase differences.
+          } else {
+            return false;
+            // This is for features that lack properties.
+            // Don't display them.
+          }
+        }
+
+
+        function BuildingTypeToFilter (feature, layer) {
+          if(buildingToHighlight === "") {
+            return true;
+          }
+          else if (feature.properties && feature.properties.CONSTRUCTION_TYPE) {
+
+            return feature.properties.CONSTRUCTION_TYPE.toLowerCase().includes(buildingToHighlight.toLowerCase());
+          // We ignore uppercase/lowercase differences.
+          } else {
+            return false;
+            // This is for features that lack properties.
+            // Don't display them.
+          }
+        }
+
+      	var lastLayerAdded = {};
+
+        function addBuildings() {
+          if(map.hasLayer(lastLayerAdded)){  // reset the map layers if relevant.
+            map.removeLayer(lastLayerAdded);
+          }
+          lastLayerAdded = L.geoJSON(buildingGeoJSONdata, {
+       												style: areaStyle,
+                     				  onEachFeature: onEachBuilding,
+              								filter: BuildingsToFilter
+
+          									 }
+                           );
+          lastLayerAdded.addTo(map);
+        };
+
+
+        function addBuildingType() {
+          if(map.hasLayer(lastLayerAdded)){  // reset the map layers if relevant.
+            map.removeLayer(lastLayerAdded);
+          }
+          lastLayerAdded = L.geoJSON(buildingGeoJSONdata, {
+       												style: areaStyle,
+                     				  onEachFeature: onEachBuilding,
+              								filter: BuildingTypeToFilter
+
+          									 }
+                           );
+          lastLayerAdded.addTo(map);
+        };
+
+
+
+
+
+        var buildingToHighlight = "";
+
+
+        function highlightBuildings() {
+          buildingToHighlight = document
+            .getElementById("highlightBuildingsTextEntry")
+            .value;  // get any text from the input box.
+          addBuildings(); // add the Buildings.
+          buildingToHighlight = "";  // reset so that "Show All Buildings" works.
+        }
+
+        function highlightMixedBuildingType() {
+          buildingToHighlight = document
+            .getElementById("#mixed")
+            .value;  // get any text from the input box.
+          addBuildingType(); // add the Buildings.
+          buildingToHighlight = "";  // reset so that "Show All Buildings" works.
+        }
+
+        function highlightConcreteBuildingType() {
+          buildingToHighlight = document
+            .getElementById("#concrete")
+            .value;  // get any text from the input box.
+          addBuildingType(); // add the Buildings.
+          buildingToHighlight = "";  // reset so that "Show All Buildings" works.
+        }
+        function highlightSteelBuildingType() {
+          buildingToHighlight = document
+            .getElementById("#steel")
+            .value;  // get any text from the input box.
+          addBuildingType(); // add the Buildings.
+          buildingToHighlight = "";  // reset so that "Show All Buildings" works.
+        }
+        function highlightTrailerBuildingType() {
+          buildingToHighlight = document
+            .getElementById("#trailer")
+            .value;  // get any text from the input box.
+          addBuildingType(); // add the Buildings.
+          buildingToHighlight = "";  // reset so that "Show All Buildings" works.
+        }
+        function highlightWoodBuildingType() {
+          buildingToHighlight = document
+            .getElementById("#wood")
+            .value;  // get any text from the input box.
+          addBuildingType(); // add the Buildings.
+          buildingToHighlight = "";  // reset so that "Show All Buildings" works.
+        }
+        function highlightTemporaryBuildingType() {
+          buildingToHighlight = document
+            .getElementById("#temporary")
+            .value;  // get any text from the input box.
+          addBuildingType(); // add the Buildings.
+          buildingToHighlight = "";  // reset so that "Show All Buildings" works.
+        }
+        function highlightMiscBuildingType() {
+          buildingToHighlight = document
+            .getElementById("#misc")
+            .value;  // get any text from the input box.
+          addBuildingType(); // add the Buildings.
+          buildingToHighlight = "";  // reset so that "Show All Buildings" works.
+        }
+
+
+
+
+        function clearBuildings() {
+            map.removeLayer(lastLayerAdded);
+          };
+
+          var info = L.control();
+
+          info.onAdd = function (map) {
+              this._div = L.DomUtil.create('div', 'info'); // create a div with a class "info"
+              this.update();
+              return this._div;
+          };
+
+          // method that we will use to update the control based on feature properties passed
+          info.update = function (props) {
+              this._div.innerHTML = '<h4>UBC Buildings</h4>' +  (props ?
+                  '<b>' + props.name + '</b><br />' + props.density + ' people / mi<sup>2</sup>'
+                  : 'Hover over a building');
+          };
+
+          info.addTo(map);
+
+var legend = L.control({position: 'bottomright'});
+legend.onAdd = function (map) {
+
+    var div = L.DomUtil.create('div', 'info legend'),
+        grades = [0, 3, 7, 9],
+        labels = ['<strong> THE TITLE </strong>'],
+        from, to;
+            div.innerHTML = '<h4># of Building Floors</h4>'
+    // loop through our density intervals and generate a label with a colored square for each interval
+    for (var i = 0; i < grades.length; i++) {
+        div.innerHTML +=
+            '<i style="background:' + getColor(grades[i] + 1) + '"></i> ' +
+            grades[i] + (grades[i + 1] ? '&ndash;' + grades[i + 1] + '<br>' : '+');
+    }
+
+
+    return div;
+};
+
+                legend.addTo(map);
+
+
+
+
+
+
+
+
+
+
+
+
+      var buildingGeoJSONdata; // Where we store building GeoJSON data
+
+      $.getJSON("https://raw.githubusercontent.com/erickv112/filtering-ubc/main/ubcv_building_records.geojson",
+                  function(data){
+          					// Store data for later:
+      	      		buildingGeoJSONdata = data;
+          					// Create event listener for ShowAllBuildings Button:
+      						document
+                      .getElementById("showAllBuildingsButton")
+                      .addEventListener("click", addBuildings);
+          					// Create event listener for the highlightBuildings Button:
+          					document
+                      .getElementById("highlightBuildingsButton")
+                      .addEventListener("click", highlightBuildings);
+                      document
+                        .getElementById("clearBuildingsButton")
+                        .addEventListener("click", clearBuildings);
+                    // Create event listener for dropdown options
+                    document
+                    .getElementById("#mixed")
+                    .addEventListener("click", highlightMixedBuildingType)
+                    document
+                    .getElementById("#concrete")
+                    .addEventListener("click", highlightConcreteBuildingType)
+                    document
+                    .getElementById("#steel")
+                    .addEventListener("click", highlightSteelBuildingType)
+                    document
+                    .getElementById("#trailer")
+                    .addEventListener("click", highlightTrailerBuildingType)
+                    document
+                    .getElementById("#wood")
+                    .addEventListener("click", highlightWoodBuildingType)
+                    document
+                    .getElementById("#temporary")
+                    .addEventListener("click", highlightTemporaryBuildingType)
+                    document
+                    .getElementById("#misc")
+                    .addEventListener("click", highlightMiscBuildingType)
+        					}
+
+        );
+
+    </script>
+                  <body onLoad="addBuildings()">
+  </body>
+</html>
